@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>رداد الذكي - إدارة الردود والطلبات</title>
+<style>
+  * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+  body { margin: 0; background: #f1f5f9; color: #0f172a; padding-bottom: 80px; }
+  .header { background: linear-gradient(135deg, #0f766e, #0d9488); color: white; padding: 18px 16px; }
+  .header h1 { margin: 0 0 4px 0; font-size: 20px; }
+  .header p { margin: 0; font-size: 13px; opacity: 0.92; }
+  .tabs { display: flex; background: white; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 50; }
+  .tab { flex: 1; text-align: center; padding: 12px 6px; font-size: 13px; font-weight: bold; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; }
+  .tab.active { color: #0f766e; border-bottom-color: #0f766e; background: #f0fdfa; }
+  .section { display: none; padding: 14px; }
+  .section.active { display: block; }
+  .card { background: white; border-radius: 14px; padding: 15px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .card h2 { margin: 0 0 12px 0; font-size: 15px; color: #0f766e; display: flex; align-items: center; justify-content: space-between; }
+  .status-box { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; margin-bottom: 10px; font-size: 13px; }
+  .status-box.ok { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+  .btn { background: #0f766e; color: white; border: none; padding: 10px 14px; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer; width: 100%; }
+  .btn-sm { width: auto; padding: 6px 12px; font-size: 12px; }
+  .btn-outline { background: transparent; border: 1px solid #0f766e; color: #0f766e; }
+  .btn-wa { background: #16a34a; margin-top: 8px; }
+  input[type="text"], input[type="password"], input[type="number"], input[type="tel"], select, textarea {
+    width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; margin-top: 5px; margin-bottom: 10px; background: #fff;
+  }
+  .app-list { max-height: 420px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px; padding: 4px 10px; }
+  .app-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+  .app-item:last-child { border-bottom: none; }
+  .app-left { display: flex; align-items: center; gap: 10px; }
+  .app-left img { width: 34px; height: 34px; border-radius: 8px; }
+  .app-info strong { display: block; font-size: 14px; }
+  .app-info small { display: block; color: #64748b; font-size: 11px; direction: ltr; text-align: right; }
+  .order-card { border: 1px solid #99f6e4; background: #f0fdfa; border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+  .order-card div { margin-bottom: 4px; font-size: 13px; }
+  .rule-row { background: #f8fafc; padding: 10px; border-radius: 10px; margin-bottom: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+  .del-btn { background: #ef4444; color: white; border: none; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; }
+  .save-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 10px 14px; box-shadow: 0 -2px 10px rgba(0,0,0,0.08); z-index: 60; }
+  .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: #0f172a; color: white; padding: 10px 20px; border-radius: 20px; display: none; font-size: 13px; z-index: 99; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>رداد الذكي (Raddad AI Pro)</h1>
+  <p>ربط فعلي بالتطبيقات + كشف الأوردرات + إرسال تلقائي للواتساب</p>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('tab-apps', this)">1. التطبيقات</div>
+  <div class="tab" onclick="switchTab('tab-ai', this)">2. الذكاء والواتساب</div>
+  <div class="tab" onclick="switchTab('tab-orders', this)">3. الأوردرات (<span id="ordersCount">0</span>)</div>
+</div>
+
+<!-- تبويب 1: الصلاحيات والتطبيقات المثبتة فعلياً -->
+<div id="tab-apps" class="section active">
+  <div class="card">
+    <h2>الصلاحيات الأساسية للتشغيل الفعلي</h2>
+    <div id="notifBox" class="status-box">
+      <span id="notifText">1. صلاحية قراءة الإشعارات (للرد على التطبيقات)</span>
+      <button class="btn btn-sm" onclick="openNotifPerms()">تفعيل</button>
+    </div>
+    <div id="accBox" class="status-box">
+      <span id="accText">2. صلاحية الإرسال التلقائي للواتساب (Accessibility)</span>
+      <button class="btn btn-sm" onclick="openAccPerms()">تفعيل</button>
+    </div>
+    <label style="display:flex; align-items:center; gap:8px; font-weight:bold; margin-top:8px;">
+      <input type="checkbox" id="serviceEnabled" checked style="width:18px; height:18px;">
+      تشغيل نظام الرد التلقائي واستقبال الطلبات
+    </label>
+  </div>
+
+  <div class="card">
+    <h2>
+      <span>التطبيقات المثبتة على هاتفك</span>
+      <button class="btn btn-sm btn-outline" onclick="loadInstalledAppsList()">تحديث القائمة</button>
+    </h2>
+    <p style="font-size:12px; color:#64748b; margin-top:0;">اختر أي تطبيق مثبت على جهازك ليقوم البرنامج بقراءة رسائله والرد عليها:</p>
+    <input type="text" id="appSearch" placeholder="ابحث باسم التطبيق (واتساب، ماسنجر، تيليجرام، انستجرام...)" oninput="filterApps()">
+    <div id="installedAppsContainer" class="app-list">
+      <div style="padding:16px; text-align:center; color:#64748b;">جاري تحميل التطبيقات المثبتة على هاتفك...</div>
+    </div>
+  </div>
+</div>
+
+<!-- تبويب 2: إعدادات الذكاء الاصطناعي وإرسال الأوردر للواتساب -->
+<div id="tab-ai" class="section">
+  <div class="card">
+    <h2>إرسال بيانات العميل للواتساب تلقائياً</h2>
+    <label style="font-size:13px; font-weight:bold;">رقم الواتساب الذي ستصلك عليه بيانات الأوردرات (بالكود الدولي):</label>
+    <input type="tel" id="adminWhatsAppNumber" placeholder="مثال: 201012345678" dir="ltr">
+
+    <label style="font-size:13px;">تطبيق الواتساب المستخدم للإرسال:</label>
+    <select id="adminWhatsAppPkg">
+      <option value="com.whatsapp">واتساب العادي (WhatsApp)</option>
+      <option value="com.whatsapp.w4b">واتساب للأعمال (WhatsApp Business)</option>
+    </select>
+
+    <label style="display:flex; align-items:center; gap:8px; font-weight:bold; margin-top:6px;">
+      <input type="checkbox" id="autoForwardOrder" checked style="width:18px; height:18px;">
+      إرسال بيانات العميل تلقائياً فور تأكيد الأوردر
+    </label>
+  </div>
+
+  <div class="card">
+    <h2>محرك الذكاء الاصطناعي وكشف الطلبات (Gemini)</h2>
+    <label style="display:flex; align-items:center; gap:8px; font-weight:bold; margin-bottom:10px;">
+      <input type="checkbox" id="aiEnabled" checked style="width:18px; height:18px;">
+      تفعيل الذكاء الاصطناعي للرد وكشف الأوردر الحقيقي
+    </label>
+
+    <label style="font-size:13px;">مفتاح Gemini API Key:</label>
+    <input type="password" id="aiApiKey" placeholder="AIzaSy..." dir="ltr">
+
+    <label style="font-size:13px;">نموذج الذكاء الاصطناعي:</label>
+    <select id="aiModel" dir="ltr">
+      <option value="gemini-2.5-flash">gemini-2.5-flash (سريع وموصى به)</option>
+      <option value="gemini-2.5-pro">gemini-2.5-pro (تحليل أعمق)</option>
+    </select>
+
+    <label style="font-size:13px;">طريقة العمل:</label>
+    <select id="aiMode">
+      <option value="primary">الذكاء الاصطناعي يتولى المحادثة ويجمع بيانات الأوردر</option>
+      <option value="fallback">الكلمات المفتاحية أولاً ثم الذكاء الاصطناعي</option>
+    </select>
+
+    <label style="font-size:13px;">تفاصيل منتجاتك وأسعارك وتعليمات البيع:</label>
+    <textarea id="aiSystemPrompt" rows="4" placeholder="اكتب هنا منتجاتك، الأسعار، مصاريف الشحن، واطلب من الذكاء الاصطناعي جمع الاسم والهاتف والعنوان لتأكيد الأوردر..."></textarea>
+  </div>
+
+  <div class="card">
+    <h2>الرد الاحتياطي والكلمات الثابتة</h2>
+    <label style="font-size:13px;">الرد الاحتياطي (عند انقطاع الإنترنت):</label>
+    <textarea id="defaultReply" rows="2"></textarea>
+    <label style="font-size:13px;">فترة التهدئة بين الردود لنفس العميل (ثانية):</label>
+    <input type="number" id="cooldown" value="45" min="5">
+
+    <hr style="border:0; border-top:1px solid #e2e8f0; margin:12px 0;">
+    <input type="text" id="newKeyword" placeholder="كلمة مفتاحية ثابتة (اختياري)">
+    <input type="text" id="newRuleReply" placeholder="الرد الثابت لهذه الكلمة">
+    <button class="btn btn-outline" onclick="addRule()">+ إضافة رد ثابت</button>
+    <div id="rulesList" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- تبويب 3: سجل العملاء والأوردرات الحقيقية -->
+<div id="tab-orders" class="section">
+  <div class="card">
+    <h2>
+      <span>العملاء أصحاب الأوردرات المؤكدة</span>
+      <button class="btn btn-sm btn-outline" onclick="clearOrders()">مسح السجل</button>
+    </h2>
+    <div id="ordersList">
+      <div style="text-align:center; color:#64748b; padding:20px;">لا توجد أوردرات مؤكدة بعد.</div>
+    </div>
+  </div>
+</div>
+
+<div class="save-bar">
+  <button class="btn" onclick="saveAll()">حفظ وتطبيق الإعدادات</button>
+</div>
+
+<div id="toast" class="toast">تم حفظ الإعدادات بنجاح</div>
+
+<script>
+let allInstalledApps = [];
+let selectedPackages = new Set(["com.whatsapp", "com.whatsapp.w4b"]);
+let customRules = [];
+
+function switchTab(tabId, el) {
+  document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.getElementById(tabId).classList.add("active");
+  el.classList.add("active");
+  if (tabId === "tab-orders") loadOrders();
+}
+
+function openNotifPerms() {
+  if (window.AndroidBridge) AndroidBridge.openNotificationSettings();
+}
+
+function openAccPerms() {
+  if (window.AndroidBridge) AndroidBridge.openAccessibilitySettings();
+}
+
+function refreshSystemStatus() {
+  if (!window.AndroidBridge) return;
+  const notifOk = AndroidBridge.isNotificationServiceEnabled();
+  const nBox = document.getElementById("notifBox");
+  const nTxt = document.getElementById("notifText");
+  if (notifOk) {
+    nBox.classList.add("ok");
+    nTxt.innerText = "✓ 1. صلاحية قراءة الإشعارات مفعلة";
+  } else {
+    nBox.classList.remove("ok");
+    nTxt.innerText = "⚠ 1. فعّل صلاحية قراءة الإشعارات";
+  }
+
+  const accOk = AndroidBridge.isAccessibilityServiceEnabled();
+  const aBox = document.getElementById("accBox");
+  const aTxt = document.getElementById("accText");
+  if (accOk) {
+    aBox.classList.add("ok");
+    aTxt.innerText = "✓ 2. الإرسال التلقائي للواتساب مفعل";
+  } else {
+    aBox.classList.remove("ok");
+    aTxt.innerText = "⚠ 2. فعّل الإرسال التلقائي للواتساب";
+  }
+}
+
+function loadInstalledAppsList() {
+  if (!window.AndroidBridge) return;
+  try {
+    allInstalledApps = JSON.parse(AndroidBridge.getInstalledApps());
+    renderApps(allInstalledApps);
+  } catch (e) {}
+}
+
+function renderApps(apps) {
+  const container = document.getElementById("installedAppsContainer");
+  if (!apps || apps.length === 0) {
+    container.innerHTML = '<div style="padding:16px; text-align:center; color:#64748b;">لم يتم العثور على تطبيقات.</div>';
+    return;
+  }
+  let html = "";
+  apps.forEach(app => {
+    const checked = selectedPackages.has(app.package) ? "checked" : "";
+    const iconTag = app.icon ? `<img src="${app.icon}" alt="">` : "";
+    html += `<div class="app-item">
+      <div class="app-left">
+        ${iconTag}
+        <div class="app-info">
+          <strong>${app.name}</strong>
+          <small>${app.package}</small>
+        </div>
+      </div>
+      <input type="checkbox" ${checked} onchange="toggleApp('${app.package}', this.checked)" style="width:20px; height:20px;">
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function toggleApp(pkg, isChecked) {
+  if (isChecked) selectedPackages.add(pkg);
+  else selectedPackages.delete(pkg);
+}
+
+function filterApps() {
+  const q = document.getElementById("appSearch").value.toLowerCase().trim();
+  if (!q) {
+    renderApps(allInstalledApps);
+    return;
+  }
+  const filtered = allInstalledApps.filter(a =>
+    a.name.toLowerCase().includes(q) || a.package.toLowerCase().includes(q)
+  );
+  renderApps(filtered);
+}
+
+function renderRules() {
+  const list = document.getElementById("rulesList");
+  list.innerHTML = "";
+  customRules.forEach((r, idx) => {
+    list.innerHTML += `<div class="rule-row">
+      <div><strong>الكلمة:</strong> ${r.keyword}<br><small><strong>الرد:</strong> ${r.reply}</small></div>
+      <button class="del-btn" onclick="deleteRule(${idx})">حذف</button>
+    </div>`;
+  });
+}
+
+function addRule() {
+  const kw = document.getElementById("newKeyword").value.trim();
+  const rp = document.getElementById("newRuleReply").value.trim();
+  if (!kw || !rp) return;
+  customRules.push({ keyword: kw, reply: rp });
+  document.getElementById("newKeyword").value = "";
+  document.getElementById("newRuleReply").value = "";
+  renderRules();
+}
+
+function deleteRule(idx) {
+  customRules.splice(idx, 1);
+  renderRules();
+}
+
+function loadOrders() {
+  if (!window.AndroidBridge) return;
+  try {
+    const orders = JSON.parse(AndroidBridge.getOrdersLog());
+    document.getElementById("ordersCount").innerText = orders.length;
+    const list = document.getElementById("ordersList");
+    if (!orders || orders.length === 0) {
+      list.innerHTML = '<div style="text-align:center; color:#64748b; padding:20px;">لا توجد أوردرات مؤكدة بعد.</div>';
+      return;
+    }
+    let html = "";
+    orders.forEach((o, i) => {
+      const summary = `🛒 طلب جديد (${o.app})
+👤 العميل: ${o.customerName}
+📞 الهاتف: ${o.phone}
+📍 العنوان: ${o.address}
+📦 الطلب: ${o.items}`;
+      html += `<div class="order-card">
+        <div><strong>👤 العميل:</strong> ${o.customerName} <small>(${o.app})</small></div>
+        <div><strong>📞 الهاتف:</strong> ${o.phone}</div>
+        <div><strong>📍 العنوان:</strong> ${o.address}</div>
+        <div><strong>📦 الطلب:</strong> ${o.items}</div>
+        <div><small style="color:#64748b;">⏰ ${o.time}</small></div>
+        <button class="btn btn-sm btn-wa" onclick='resendOrder(${JSON.stringify(summary)})'>إرسال للواتساب الآن</button>
+      </div>`;
+    });
+    list.innerHTML = html;
+  } catch (e) {}
+}
+
+function resendOrder(text) {
+  if (window.AndroidBridge) AndroidBridge.sendOrderManuallyToWhatsApp(text);
+}
+
+function clearOrders() {
+  if (window.AndroidBridge) {
+    AndroidBridge.clearOrdersLog();
+    loadOrders();
+  }
+}
+
+function saveAll() {
+  const enabled = document.getElementById("serviceEnabled").checked;
+  const appsStr = Array.from(selectedPackages).join(",");
+  const defaultReply = document.getElementById("defaultReply").value;
+  const cooldown = parseInt(document.getElementById("cooldown").value) || 45;
+
+  const aiEnabled = document.getElementById("aiEnabled").checked;
+  const aiApiKey = document.getElementById("aiApiKey").value.trim();
+  const aiModel = document.getElementById("aiModel").value;
+  const aiSystemPrompt = document.getElementById("aiSystemPrompt").value;
+  const aiMode = document.getElementById("aiMode").value;
+
+  const adminPhone = document.getElementById("adminWhatsAppNumber").value.trim();
+  const adminPkg = document.getElementById("adminWhatsAppPkg").value;
+  const autoForward = document.getElementById("autoForwardOrder").checked;
+
+  if (window.AndroidBridge) {
+    AndroidBridge.saveSettings(
+      enabled,
+      appsStr,
+      defaultReply,
+      JSON.stringify(customRules),
+      cooldown,
+      aiEnabled,
+      aiApiKey,
+      aiModel,
+      aiSystemPrompt,
+      aiMode,
+      adminPhone,
+      adminPkg,
+      autoForward
+    );
+  }
+  const toast = document.getElementById("toast");
+  toast.style.display = "block";
+  setTimeout(() => toast.style.display = "none", 2500);
+}
+
+window.onload = function() {
+  refreshSystemStatus();
+  if (window.AndroidBridge) {
+    try {
+      const data = JSON.parse(AndroidBridge.loadSettings());
+      document.getElementById("serviceEnabled").checked = data.enabled;
+      document.getElementById("defaultReply").value = data.defaultReply;
+      document.getElementById("cooldown").value = data.cooldown;
+      document.getElementById("aiEnabled").checked = data.aiEnabled;
+      document.getElementById("aiApiKey").value = data.aiApiKey || "";
+      document.getElementById("aiModel").value = data.aiModel || "gemini-2.5-flash";
+      document.getElementById("aiSystemPrompt").value = data.aiSystemPrompt || "";
+      document.getElementById("aiMode").value = data.aiMode || "primary";
+      document.getElementById("adminWhatsAppNumber").value = data.adminWhatsAppNumber || "";
+      document.getElementById("adminWhatsAppPkg").value = data.adminWhatsAppPkg || "com.whatsapp";
+      document.getElementById("autoForwardOrder").checked = data.autoForwardOrder;
+
+      customRules = JSON.parse(data.rules || "[]");
+      renderRules();
+
+      const savedApps = (data.apps || "").split(",").map(s => s.trim()).filter(Boolean);
+      selectedPackages = new Set(savedApps);
+    } catch (e) {}
+  }
+  loadInstalledAppsList();
+  loadOrders();
+};
+</script>
+</body>
+</html>
